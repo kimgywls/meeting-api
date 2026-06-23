@@ -1,15 +1,19 @@
 package com.meeting.meetingapi.service;
 
 import com.meeting.meetingapi.domain.entity.Room;
+import com.meeting.meetingapi.domain.enums.ReservationStatus;
 import com.meeting.meetingapi.dto.request.RoomRequest;
 import com.meeting.meetingapi.dto.response.RoomResponse;
 import com.meeting.meetingapi.exception.CustomException;
+import com.meeting.meetingapi.repository.ReservationRepository;
 import com.meeting.meetingapi.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -17,6 +21,7 @@ import java.util.List;
 public class RoomService {
 
     private final RoomRepository roomRepository;
+    private final ReservationRepository reservationRepository;
 
     @Transactional(readOnly = true)
     public List<RoomResponse> getRooms() {
@@ -53,7 +58,34 @@ public class RoomService {
 
     @Transactional
     public void deleteRoom(Long id) {
-        roomRepository.delete(findRoomById(id));
+        Room room = findRoomById(id);
+        if (reservationRepository.existsByRoomAndStatus(room, ReservationStatus.CONFIRMED)) {
+            throw new CustomException("확정된 예약이 있는 회의실은 삭제할 수 없습니다.", HttpStatus.CONFLICT);
+        }
+        roomRepository.delete(room);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoomResponse> getAvailableRooms(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        if (startTime == null && endTime == null) {
+            return roomRepository.findAvailableRoomsByDate(date).stream()
+                    .map(RoomResponse::new)
+                    .toList();
+        }
+        if (startTime != null && endTime == null) {
+            return roomRepository.findAvailableRoomsFromTime(date, startTime).stream()
+                    .map(RoomResponse::new)
+                    .toList();
+        }
+        if (startTime == null) {
+            throw new CustomException("종료 시간만 단독으로 입력할 수 없습니다.", HttpStatus.BAD_REQUEST);
+        }
+        if (!startTime.isBefore(endTime)) {
+            throw new CustomException("시작 시간은 종료 시간보다 빨라야 합니다.", HttpStatus.BAD_REQUEST);
+        }
+        return roomRepository.findAvailableRooms(date, startTime, endTime).stream()
+                .map(RoomResponse::new)
+                .toList();
     }
 
     private Room findRoomById(Long id) {

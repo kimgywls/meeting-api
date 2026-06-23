@@ -11,6 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @RestController
@@ -25,6 +29,15 @@ public class RoomController {
     @Operation(summary = "회의실 목록 조회")
     public ResponseEntity<List<RoomResponse>> getRooms() {
         return ResponseEntity.ok(roomService.getRooms());
+    }
+
+    @GetMapping("/available")
+    @Operation(summary = "예약 가능한 회의실 조회")
+    public ResponseEntity<List<RoomResponse>> getAvailableRooms(
+            @RequestParam LocalDate date,
+            @RequestParam(required = false) @Schema(type = "string", example = "10:00:00") LocalTime startTime,
+            @RequestParam(required = false) @Schema(type = "string", example = "11:00:00") LocalTime endTime) {
+        return ResponseEntity.ok(roomService.getAvailableRooms(date, startTime, endTime));
     }
 
     @GetMapping("/{id}")
