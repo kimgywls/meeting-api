@@ -12,3 +12,17 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  meeting-api:
+    build: .
+    container_name: meeting-api
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:oracle:thin:@meeting-oracle:1521/XEPDB1
+      DB_USERNAME: ${DB_USERNAME:-system}
+      DB_PASSWORD: ${DB_PASSWORD:-1234}
+      JWT_SECRET: ${JWT_SECRET:-meeting-api-jwt-secret-key-minimum-32-chars!!}
+    depends_on:
+      oracle:
+        condition: service_healthy
