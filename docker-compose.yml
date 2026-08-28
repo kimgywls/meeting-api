@@ -2,20 +2,24 @@ services:
   oracle:
     image: gvenzl/oracle-xe:21-slim
     container_name: meeting-oracle
+    restart: unless-stopped
     ports:
       - "1521:1521"
     environment:
       ORACLE_PASSWORD: ${DB_PASSWORD:-1234}
+    volumes:
+      - oracle-data:/opt/oracle/oradata
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 30
+      start_period: 120s
 
   meeting-api:
     build: .
     container_name: meeting-api
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
@@ -26,3 +30,12 @@ services:
     depends_on:
       oracle:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/rooms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  oracle-data:
