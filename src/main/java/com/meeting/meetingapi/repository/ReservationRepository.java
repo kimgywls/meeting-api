@@ -32,6 +32,18 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                                       @Param("startTime") LocalTime startTime,
                                       @Param("endTime") LocalTime endTime);
 
+    @Query("SELECT r FROM Reservation r WHERE r.room.id = :roomId " +
+           "AND r.date = :date " +
+           "AND r.status = 'CONFIRMED' " +
+           "AND r.startTime < :endTime " +
+           "AND r.endTime > :startTime " +
+           "AND r.id <> :excludeReservationId")
+    List<Reservation> findOverlappingExcludingReservation(@Param("roomId") Long roomId,
+                                                           @Param("date") LocalDate date,
+                                                           @Param("startTime") LocalTime startTime,
+                                                           @Param("endTime") LocalTime endTime,
+                                                           @Param("excludeReservationId") Long excludeReservationId);
+
     List<Reservation> findByDateAndStatus(LocalDate date, ReservationStatus status);
 
     long countByMember(Member member);

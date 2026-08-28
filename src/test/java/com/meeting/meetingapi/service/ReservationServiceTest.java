@@ -6,6 +6,7 @@ import com.meeting.meetingapi.domain.entity.Room;
 import com.meeting.meetingapi.domain.enums.MemberRole;
 import com.meeting.meetingapi.domain.enums.ReservationStatus;
 import com.meeting.meetingapi.dto.request.ReservationRequest;
+import com.meeting.meetingapi.dto.request.ReservationUpdateRequest;
 import com.meeting.meetingapi.dto.response.ReservationResponse;
 import com.meeting.meetingapi.exception.CustomException;
 import com.meeting.meetingapi.exception.ErrorCode;
@@ -82,6 +83,15 @@ class ReservationServiceTest {
         return request;
     }
 
+    private ReservationUpdateRequest buildUpdateRequest(String title, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        ReservationUpdateRequest request = new ReservationUpdateRequest();
+        ReflectionTestUtils.setField(request, "title", title);
+        ReflectionTestUtils.setField(request, "date", date);
+        ReflectionTestUtils.setField(request, "startTime", startTime);
+        ReflectionTestUtils.setField(request, "endTime", endTime);
+        return request;
+    }
+
     @Test
     void 정상_요청이면_예약이_생성되고_응답과_DB값이_요청과_일치한다() {
         ReservationRequest request = buildRequest(room.getId(), date, startTime, endTime);
@@ -147,5 +157,114 @@ class ReservationServiceTest {
         assertThatThrownBy(() -> reservationService.cancelReservation(created.getId(), member.getUsername()))
                 .isInstanceOfSatisfying(CustomException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_ALREADY_CANCELLED));
+    }
+
+    @Test
+    void 정상_수정이면_응답과_DB값에_변경사항이_반영된다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+        LocalDate newDate = date.plusDays(1);
+        LocalTime newStartTime = LocalTime.of(14, 0);
+        LocalTime newEndTime = LocalTime.of(15, 0);
+
+        ReservationResponse updated = reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("수정된 제목", newDate, newStartTime, newEndTime), member.getUsername());
+
+        assertThat(updated.getTitle()).isEqualTo("수정된 제목");
+        assertThat(updated.getDate()).isEqualTo(newDate);
+        assertThat(updated.getStartTime()).isEqualTo(newStartTime);
+        assertThat(updated.getEndTime()).isEqualTo(newEndTime);
+        assertThat(updated.getRoomId()).isEqualTo(room.getId());
+
+        Reservation saved = reservationRepository.findById(created.getId()).orElseThrow();
+        assertThat(saved.getTitle()).isEqualTo("수정된 제목");
+        assertThat(saved.getDate()).isEqualTo(newDate);
+        assertThat(saved.getStartTime()).isEqualTo(newStartTime);
+        assertThat(saved.getEndTime()).isEqualTo(newEndTime);
+    }
+
+    @Test
+    void 취소된_예약을_수정하면_RESERVATION_ALREADY_CANCELLED_예외가_발생한다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+        reservationService.cancelReservation(created.getId(), member.getUsername());
+
+        assertThatThrownBy(() -> reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("수정 시도", date, startTime, endTime), member.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_ALREADY_CANCELLED));
+    }
+
+    @Test
+    void 존재하지_않는_예약을_수정하면_RESERVATION_NOT_FOUND_예외가_발생한다() {
+        long nonExistentId = Long.MAX_VALUE;
+
+        assertThatThrownBy(() -> reservationService.updateReservation(nonExistentId,
+                buildUpdateRequest("수정 시도", date, startTime, endTime), member.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_NOT_FOUND));
+    }
+
+    @Test
+    void 타인의_예약을_수정하면_RESERVATION_UPDATE_ACCESS_DENIED_예외가_발생한다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+        long otherSuffix = System.nanoTime();
+        Member other = memberRepository.save(Member.builder()
+                .username("rs-test-other-" + otherSuffix).password("pw").nickname("other")
+                .email(otherSuffix + "@example.com").role(MemberRole.ROLE_USER).build());
+
+        assertThatThrownBy(() -> reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("수정 시도", date, startTime, endTime), other.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_UPDATE_ACCESS_DENIED));
+    }
+
+    @Test
+    void 시작_시간이_종료_시간보다_늦거나_같게_수정하면_INVALID_TIME_RANGE_예외가_발생한다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+
+        assertThatThrownBy(() -> reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("수정 시도", date, LocalTime.of(11, 0), LocalTime.of(10, 0)), member.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_TIME_RANGE));
+    }
+
+    @Test
+    void 과거_날짜로_수정하면_RESERVATION_PAST_DATE_예외가_발생한다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+
+        assertThatThrownBy(() -> reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("수정 시도", LocalDate.now().minusDays(1), startTime, endTime), member.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_PAST_DATE));
+    }
+
+    @Test
+    void 다른_예약과_겹치는_시간으로_수정하면_RESERVATION_TIME_CONFLICT_예외가_발생한다() {
+        reservationService.createReservation(
+                buildRequest(room.getId(), date, LocalTime.of(13, 0), LocalTime.of(14, 0)), member.getUsername());
+        ReservationResponse target = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+
+        assertThatThrownBy(() -> reservationService.updateReservation(target.getId(),
+                buildUpdateRequest("수정 시도", date, LocalTime.of(13, 30), LocalTime.of(14, 30)), member.getUsername()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.RESERVATION_TIME_CONFLICT));
+    }
+
+    @Test
+    void 자기_자신의_기존_시간대로_다시_수정하면_중복_검사에서_제외되어_정상_수정된다() {
+        ReservationResponse created = reservationService.createReservation(
+                buildRequest(room.getId(), date, startTime, endTime), member.getUsername());
+
+        ReservationResponse updated = reservationService.updateReservation(created.getId(),
+                buildUpdateRequest("동일 시간대 재수정", date, startTime, endTime), member.getUsername());
+
+        assertThat(updated.getTitle()).isEqualTo("동일 시간대 재수정");
+        assertThat(updated.getStartTime()).isEqualTo(startTime);
+        assertThat(updated.getEndTime()).isEqualTo(endTime);
     }
 }

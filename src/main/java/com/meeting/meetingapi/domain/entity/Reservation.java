@@ -56,4 +56,11 @@ public class Reservation {
     public void cancel() {
         this.status = ReservationStatus.CANCELLED;
     }
+
+    public void update(String title, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        this.title = title;
+        this.date = date;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
 }

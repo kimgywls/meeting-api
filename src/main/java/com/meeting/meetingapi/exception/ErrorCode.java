@@ -15,6 +15,7 @@ public enum ErrorCode {
     RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 예약입니다."),
     RESERVATION_TIME_CONFLICT(HttpStatus.CONFLICT, "해당 시간에 이미 예약이 있습니다."),
     RESERVATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 예약만 취소할 수 있습니다."),
+    RESERVATION_UPDATE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 예약만 수정할 수 있습니다."),
     RESERVATION_ALREADY_CANCELLED(HttpStatus.CONFLICT, "이미 취소된 예약입니다."),
     RESERVATION_PAST_DATE(HttpStatus.BAD_REQUEST, "과거 날짜에는 예약할 수 없습니다."),
     INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "시작 시간은 종료 시간보다 빨라야 합니다."),

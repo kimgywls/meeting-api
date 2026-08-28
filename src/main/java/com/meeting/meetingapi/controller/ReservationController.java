@@ -1,6 +1,7 @@
 package com.meeting.meetingapi.controller;
 
 import com.meeting.meetingapi.dto.request.ReservationRequest;
+import com.meeting.meetingapi.dto.request.ReservationUpdateRequest;
 import com.meeting.meetingapi.dto.response.ReservationResponse;
 import com.meeting.meetingapi.service.ReservationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,13 @@ public class ReservationController {
             @PathVariable Long id, Authentication authentication) {
         reservationService.cancelReservation(id, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/api/reservations/{id}")
+    @Operation(summary = "예약 수정")
+    public ResponseEntity<ReservationResponse> updateReservation(
+            @PathVariable Long id, @RequestBody ReservationUpdateRequest request, Authentication authentication) {
+        return ResponseEntity.ok(reservationService.updateReservation(id, request, authentication.getName()));
     }
 
     @GetMapping("/api/rooms/{roomId}/reservations")
