@@ -2,7 +2,6 @@ package com.meeting.meetingapi.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,30 +13,34 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
+        ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity
-                .status(e.getStatus())
-                .body(new ErrorResponse(e.getStatus().value(), e.getMessage()));
+                .status(errorCode.getStatus())
+                .body(new ErrorResponse(errorCode.name(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+        ErrorCode errorCode = ErrorCode.ACCESS_DENIED;
         return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(new ErrorResponse(403, "접근 권한이 없습니다."));
+                .status(errorCode.getStatus())
+                .body(new ErrorResponse(errorCode.name(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        ErrorCode errorCode = ErrorCode.DATA_INTEGRITY_VIOLATION;
         return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse(409, "이미 존재하는 데이터입니다."));
+                .status(errorCode.getStatus())
+                .body(new ErrorResponse(errorCode.name(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
         log.error("Unhandled exception", e);
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
         return ResponseEntity
-                .internalServerError()
-                .body(new ErrorResponse(500, "서버 오류가 발생했습니다."));
+                .status(errorCode.getStatus())
+                .body(new ErrorResponse(errorCode.name(), errorCode.getMessage()));
     }
 }

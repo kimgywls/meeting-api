@@ -5,10 +5,10 @@ import com.meeting.meetingapi.dto.request.LoginRequest;
 import com.meeting.meetingapi.dto.request.RegisterRequest;
 import com.meeting.meetingapi.dto.response.LoginResponse;
 import com.meeting.meetingapi.exception.CustomException;
+import com.meeting.meetingapi.exception.ErrorCode;
 import com.meeting.meetingapi.repository.MemberRepository;
 import com.meeting.meetingapi.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +22,7 @@ public class AuthService {
 
     public void register(RegisterRequest request) {
         if (memberRepository.existsByUsername(request.getUsername())) {
-            throw new CustomException("이미 사용 중인 아이디입니다.", HttpStatus.CONFLICT);
+            throw new CustomException(ErrorCode.USERNAME_DUPLICATE);
         }
         Member member = Member.builder()
                 .username(request.getUsername())
@@ -35,10 +35,10 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         Member member = memberRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new CustomException("아이디 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw new CustomException("아이디 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED);
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         String token = jwtTokenProvider.generateToken(member.getUsername(), member.getRole().name());

@@ -5,10 +5,10 @@ import com.meeting.meetingapi.domain.enums.ReservationStatus;
 import com.meeting.meetingapi.dto.request.RoomRequest;
 import com.meeting.meetingapi.dto.response.RoomResponse;
 import com.meeting.meetingapi.exception.CustomException;
+import com.meeting.meetingapi.exception.ErrorCode;
 import com.meeting.meetingapi.repository.ReservationRepository;
 import com.meeting.meetingapi.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +38,7 @@ public class RoomService {
     @Transactional
     public RoomResponse createRoom(RoomRequest request) {
         if (roomRepository.existsByName(request.getName())) {
-            throw new CustomException("이미 존재하는 회의실 이름입니다.", HttpStatus.CONFLICT);
+            throw new CustomException(ErrorCode.ROOM_NAME_DUPLICATE);
         }
         Room room = Room.builder()
                 .name(request.getName())
@@ -60,7 +60,7 @@ public class RoomService {
     public void deleteRoom(Long id) {
         Room room = findRoomById(id);
         if (reservationRepository.existsByRoomAndStatus(room, ReservationStatus.CONFIRMED)) {
-            throw new CustomException("확정된 예약이 있는 회의실은 삭제할 수 없습니다.", HttpStatus.CONFLICT);
+            throw new CustomException(ErrorCode.ROOM_HAS_ACTIVE_RESERVATION);
         }
         roomRepository.delete(room);
     }
@@ -78,10 +78,10 @@ public class RoomService {
                     .toList();
         }
         if (startTime == null) {
-            throw new CustomException("종료 시간만 단독으로 입력할 수 없습니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TIME_PARAMETER);
         }
         if (!startTime.isBefore(endTime)) {
-            throw new CustomException("시작 시간은 종료 시간보다 빨라야 합니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TIME_RANGE);
         }
         return roomRepository.findAvailableRooms(date, startTime, endTime).stream()
                 .map(RoomResponse::new)
@@ -90,6 +90,6 @@ public class RoomService {
 
     private Room findRoomById(Long id) {
         return roomRepository.findById(id)
-                .orElseThrow(() -> new CustomException("존재하지 않는 회의실입니다.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
     }
 }

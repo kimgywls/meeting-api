@@ -7,11 +7,11 @@ import com.meeting.meetingapi.domain.enums.ReservationStatus;
 import com.meeting.meetingapi.dto.request.ReservationRequest;
 import com.meeting.meetingapi.dto.response.ReservationResponse;
 import com.meeting.meetingapi.exception.CustomException;
+import com.meeting.meetingapi.exception.ErrorCode;
 import com.meeting.meetingapi.repository.MemberRepository;
 import com.meeting.meetingapi.repository.ReservationRepository;
 import com.meeting.meetingapi.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,20 +37,20 @@ public class ReservationService {
     @Transactional
     public ReservationResponse createReservation(ReservationRequest request, String username) {
         if (!request.getStartTime().isBefore(request.getEndTime())) {
-            throw new CustomException("시작 시간은 종료 시간보다 빨라야 합니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TIME_RANGE);
         }
         if (request.getDate().isBefore(LocalDate.now())) {
-            throw new CustomException("과거 날짜에는 예약할 수 없습니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.RESERVATION_PAST_DATE);
         }
 
         // 비관적 락으로 동시 예약 방지
         Room room = roomRepository.findByIdWithLock(request.getRoomId())
-                .orElseThrow(() -> new CustomException("존재하지 않는 회의실입니다.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
         List<Reservation> overlapping = reservationRepository.findOverlapping(
                 request.getRoomId(), request.getDate(), request.getStartTime(), request.getEndTime());
         if (!overlapping.isEmpty()) {
-            throw new CustomException("해당 시간에 이미 예약이 있습니다.", HttpStatus.CONFLICT);
+            throw new CustomException(ErrorCode.RESERVATION_TIME_CONFLICT);
         }
 
         Member member = findMemberByUsername(username);
@@ -69,13 +69,13 @@ public class ReservationService {
     @Transactional
     public void cancelReservation(Long id, String username) {
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new CustomException("존재하지 않는 예약입니다.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
 
         if (!reservation.getMember().getUsername().equals(username)) {
-            throw new CustomException("본인의 예약만 취소할 수 있습니다.", HttpStatus.FORBIDDEN);
+            throw new CustomException(ErrorCode.RESERVATION_ACCESS_DENIED);
         }
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new CustomException("이미 취소된 예약입니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.RESERVATION_ALREADY_CANCELLED);
         }
 
         reservation.cancel();
@@ -84,7 +84,7 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<ReservationResponse> getRoomReservations(Long roomId, LocalDate date) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new CustomException("존재하지 않는 회의실입니다.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
         return reservationRepository.findByRoomAndDateAndStatus(room, date, ReservationStatus.CONFIRMED).stream()
                 .map(ReservationResponse::new)
                 .toList();
@@ -99,6 +99,6 @@ public class ReservationService {
 
     private Member findMemberByUsername(String username) {
         return memberRepository.findByUsername(username)
-                .orElseThrow(() -> new CustomException("존재하지 않는 회원입니다.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
     }
 }
