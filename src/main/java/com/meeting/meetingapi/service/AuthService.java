@@ -9,9 +9,11 @@ import com.meeting.meetingapi.exception.ErrorCode;
 import com.meeting.meetingapi.repository.MemberRepository;
 import com.meeting.meetingapi.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -30,18 +32,24 @@ public class AuthService {
                 .nickname(request.getNickname())
                 .email(request.getEmail())
                 .build();
-        memberRepository.save(member);
+        Member saved = memberRepository.save(member);
+        log.info("회원가입 완료. memberId={}", saved.getId());
     }
 
     public LoginResponse login(LoginRequest request) {
         Member member = memberRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
+                .orElseThrow(() -> {
+                    log.warn("로그인 실패. errorCode={}", ErrorCode.INVALID_CREDENTIALS);
+                    return new CustomException(ErrorCode.INVALID_CREDENTIALS);
+                });
 
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            log.warn("로그인 실패. errorCode={}", ErrorCode.INVALID_CREDENTIALS);
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         String token = jwtTokenProvider.generateToken(member.getUsername(), member.getRole().name());
+        log.info("로그인 성공. memberId={}", member.getId());
         return new LoginResponse(token, member.getUsername(), member.getRole().name());
     }
 }

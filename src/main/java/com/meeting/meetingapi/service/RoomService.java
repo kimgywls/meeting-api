@@ -9,6 +9,7 @@ import com.meeting.meetingapi.exception.ErrorCode;
 import com.meeting.meetingapi.repository.ReservationRepository;
 import com.meeting.meetingapi.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomService {
@@ -46,13 +48,16 @@ public class RoomService {
                 .capacity(request.getCapacity())
                 .description(request.getDescription())
                 .build();
-        return new RoomResponse(roomRepository.save(room));
+        Room saved = roomRepository.save(room);
+        log.info("회의실 생성 완료. roomId={}, roomName={}", saved.getId(), saved.getName());
+        return new RoomResponse(saved);
     }
 
     @Transactional
     public RoomResponse updateRoom(Long id, RoomRequest request) {
         Room room = findRoomById(id);
         room.update(request.getName(), request.getLocation(), request.getCapacity(), request.getDescription());
+        log.info("회의실 수정 완료. roomId={}, roomName={}", room.getId(), room.getName());
         return new RoomResponse(room);
     }
 
@@ -63,6 +68,7 @@ public class RoomService {
             throw new CustomException(ErrorCode.ROOM_HAS_ACTIVE_RESERVATION);
         }
         roomRepository.delete(room);
+        log.info("회의실 삭제 완료. roomId={}, roomName={}", room.getId(), room.getName());
     }
 
     @Transactional(readOnly = true)

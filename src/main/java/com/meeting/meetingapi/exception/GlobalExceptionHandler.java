@@ -22,6 +22,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
         ErrorCode errorCode = ErrorCode.ACCESS_DENIED;
+        log.warn("권한 없는 접근 시도. errorCode={}", errorCode);
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(new ErrorResponse(errorCode.name(), errorCode.getMessage()));

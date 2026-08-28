@@ -12,12 +12,14 @@ import com.meeting.meetingapi.repository.MemberRepository;
 import com.meeting.meetingapi.repository.ReservationRepository;
 import com.meeting.meetingapi.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
@@ -50,6 +52,8 @@ public class ReservationService {
         List<Reservation> overlapping = reservationRepository.findOverlapping(
                 request.getRoomId(), request.getDate(), request.getStartTime(), request.getEndTime());
         if (!overlapping.isEmpty()) {
+            log.info("예약 시간 충돌. username={}, roomId={}, date={}, startTime={}, endTime={}",
+                    username, request.getRoomId(), request.getDate(), request.getStartTime(), request.getEndTime());
             throw new CustomException(ErrorCode.RESERVATION_TIME_CONFLICT);
         }
 
@@ -63,7 +67,10 @@ public class ReservationService {
                 .endTime(request.getEndTime())
                 .build();
 
-        return new ReservationResponse(reservationRepository.save(reservation));
+        Reservation saved = reservationRepository.save(reservation);
+        log.info("예약 생성 완료. username={}, roomId={}, date={}, startTime={}, endTime={}, reservationId={}",
+                username, request.getRoomId(), request.getDate(), request.getStartTime(), request.getEndTime(), saved.getId());
+        return new ReservationResponse(saved);
     }
 
     @Transactional
@@ -72,6 +79,7 @@ public class ReservationService {
                 .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
 
         if (!reservation.getMember().getUsername().equals(username)) {
+            log.warn("권한 없는 예약 취소 시도. username={}, reservationId={}", username, id);
             throw new CustomException(ErrorCode.RESERVATION_ACCESS_DENIED);
         }
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
@@ -79,6 +87,7 @@ public class ReservationService {
         }
 
         reservation.cancel();
+        log.info("예약 취소 완료. username={}, reservationId={}", username, id);
     }
 
     @Transactional(readOnly = true)
