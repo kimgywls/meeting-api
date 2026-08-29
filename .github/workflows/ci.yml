@@ -74,10 +74,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "Deploy meeting-api from GitHub Actions" \
             --parameters 'commands=[
-              "sudo -u ec2-user -H bash -lc '\''cd /home/ec2-user/meeting-api && git pull --ff-only origin main'\''",
-              "sudo -u ec2-user -H bash -lc '\''cd /home/ec2-user/meeting-api && docker compose up -d --build'\''",
-              "sleep 20",
-              "curl -fsS http://localhost/api/rooms"
+              "sudo -u ec2-user -H bash -lc '\''set -e; cd /home/ec2-user/meeting-api && git pull --ff-only origin main && docker compose up -d --build'\'' && for i in $(seq 1 12); do curl -fsS http://localhost/actuator/health > /dev/null 2>&1 && echo Health check succeeded && exit 0; echo Health check attempt $i failed, retrying in 5s...; sleep 5; done; echo Health check failed after 60s >&2; exit 1"
             ]' \
             --query "Command.CommandId" \
             --output text)
