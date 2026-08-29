@@ -21,7 +21,7 @@ services:
     container_name: meeting-api
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       DB_URL: jdbc:oracle:thin:@meeting-oracle:1521/XEPDB1
       DB_USERNAME: ${DB_USERNAME:-system}
