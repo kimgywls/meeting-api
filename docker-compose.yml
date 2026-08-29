@@ -27,6 +27,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-system}
       DB_PASSWORD: ${DB_PASSWORD:-1234}
       JWT_SECRET: ${JWT_SECRET:-meeting-api-jwt-secret-key-minimum-32-chars!!}
+      FRONTEND_URL: ${FRONTEND_URL:-}
     depends_on:
       oracle:
         condition: service_healthy
