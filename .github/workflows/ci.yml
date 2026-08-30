@@ -54,8 +54,8 @@ jobs:
   deploy:
     needs: test
 
-    # PR에서는 배포하지 않고 main push일 때만 실행
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # PR에서는 배포하지 않고, main push이면서 AWS 배포 환경(Repository Variables)이 구성되어 있을 때만 실행
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_ROLE_ARN != '' && vars.EC2_INSTANCE_ID != ''
 
     runs-on: ubuntu-latest
 
